@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { db } from '../db'
 import { getMonthlyClosing, getSettings, setMonthPaid } from '../repo'
-import { Screen, TopBar, Card, PrimaryButton, OutlineButton, SecondaryButton } from '../components/ui'
+import { Screen, TopBar, Card, Field, TextInput, PrimaryButton, OutlineButton, SecondaryButton } from '../components/ui'
 import { CheckCircleIcon, CircleIcon, DownloadIcon, CopyIcon } from '../components/icons'
 import { currentMonthKey, formatCurrencyBRL, formatMonthLabelCapitalized } from '../utils/month'
 import { buildReceiptFilename, buildReceiptText, generateReceiptPdf } from '../utils/receipt'
@@ -15,6 +15,7 @@ export function MonthlyClosingPage() {
   const monthKey = params.get('mes') ?? currentMonthKey()
   const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
+  const [payerName, setPayerName] = useState('')
 
   const patient = useLiveQuery(() => db.patients.get(patientId), [patientId])
   const settings = useLiveQuery(() => getSettings(), [])
@@ -25,6 +26,10 @@ export function MonthlyClosingPage() {
     [patientId, monthKey, paymentsVersion, sessionsVersion],
   )
 
+  useEffect(() => {
+    if (patient) setPayerName(patient.payerName || patient.name)
+  }, [patient])
+
   async function togglePaid() {
     if (!closing) return
     await setMonthPaid(patientId, monthKey, !closing.paid)
@@ -32,13 +37,13 @@ export function MonthlyClosingPage() {
 
   async function handleDownloadPdf() {
     if (!patient || !closing) return
-    const doc = await generateReceiptPdf(patient, settings, closing)
+    const doc = await generateReceiptPdf(patient, settings, closing, payerName)
     doc.save(buildReceiptFilename(patient, monthKey))
   }
 
   async function handleCopyText() {
     if (!patient || !closing) return
-    const text = buildReceiptText(patient, settings, closing)
+    const text = buildReceiptText(patient, settings, closing, payerName)
     await navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -46,7 +51,7 @@ export function MonthlyClosingPage() {
 
   async function handleShare() {
     if (!patient || !closing) return
-    const text = buildReceiptText(patient, settings, closing)
+    const text = buildReceiptText(patient, settings, closing, payerName)
     if (navigator.share) {
       try {
         await navigator.share({ title: `Recibo - ${patient.name}`, text })
@@ -100,6 +105,9 @@ export function MonthlyClosingPage() {
         ) : (
           <div className="flex flex-col gap-3">
             <p className="text-sm font-semibold text-charcoal">Recibo</p>
+            <Field label="Recibo emitido para" hint="Nome de quem recebe o recibo (paciente ou familiar responsável pelo pagamento).">
+              <TextInput value={payerName} onChange={(e) => setPayerName(e.target.value)} />
+            </Field>
             <PrimaryButton onClick={handleDownloadPdf}>
               <DownloadIcon className="w-5 h-5" />
               Baixar recibo em PDF

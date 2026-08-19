@@ -1,5 +1,5 @@
 import { db } from './db'
-import type { Patient, Session, MonthlyPayment, BackupData } from './types'
+import type { Patient, Session, MonthlyPayment, MonthlyNote, BackupData } from './types'
 import { monthKeyFromDate } from './utils/month'
 
 // ---- Patients ----
@@ -104,6 +104,34 @@ export async function getAllClosingsForMonth(monthKey: string): Promise<MonthlyC
   return Promise.all(patients.map((p) => getMonthlyClosing(p.id!, monthKey)))
 }
 
+// ---- Monthly notes (observações / evolução do mês) ----
+
+export async function getMonthlyNote(patientId: number, monthKey: string): Promise<string> {
+  const note = await db.monthlyNotes
+    .where('[patientId+monthKey]')
+    .equals([patientId, monthKey])
+    .first()
+  return note?.text ?? ''
+}
+
+export async function saveMonthlyNote(patientId: number, monthKey: string, text: string): Promise<void> {
+  const existing = await db.monthlyNotes
+    .where('[patientId+monthKey]')
+    .equals([patientId, monthKey])
+    .first()
+  const record: Omit<MonthlyNote, 'id'> = {
+    patientId,
+    monthKey,
+    text,
+    updatedAt: new Date().toISOString(),
+  }
+  if (existing?.id) {
+    await db.monthlyNotes.update(existing.id, record)
+  } else {
+    await db.monthlyNotes.add(record)
+  }
+}
+
 // ---- Settings ----
 
 export async function getSettings() {
@@ -117,31 +145,35 @@ export async function saveSettings(data: { name: string; credential?: string; ph
 // ---- Backup ----
 
 export async function exportBackup(): Promise<BackupData> {
-  const [patients, sessions, payments, settings] = await Promise.all([
+  const [patients, sessions, payments, settings, monthlyNotes] = await Promise.all([
     db.patients.toArray(),
     db.sessions.toArray(),
     db.payments.toArray(),
     db.settings.toArray(),
+    db.monthlyNotes.toArray(),
   ])
   return {
     exportedAt: new Date().toISOString(),
-    version: 1,
+    version: 2,
     patients,
     sessions,
     payments,
     settings,
+    monthlyNotes,
   }
 }
 
 export async function importBackup(data: BackupData): Promise<void> {
-  await db.transaction('rw', db.patients, db.sessions, db.payments, db.settings, async () => {
+  await db.transaction('rw', db.patients, db.sessions, db.payments, db.settings, db.monthlyNotes, async () => {
     await db.patients.clear()
     await db.sessions.clear()
     await db.payments.clear()
     await db.settings.clear()
+    await db.monthlyNotes.clear()
     if (data.patients?.length) await db.patients.bulkAdd(data.patients)
     if (data.sessions?.length) await db.sessions.bulkAdd(data.sessions)
     if (data.payments?.length) await db.payments.bulkAdd(data.payments)
     if (data.settings?.length) await db.settings.bulkAdd(data.settings)
+    if (data.monthlyNotes?.length) await db.monthlyNotes.bulkAdd(data.monthlyNotes)
   })
 }

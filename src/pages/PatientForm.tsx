@@ -11,6 +11,8 @@ export function PatientForm() {
   const [name, setName] = useState('')
   const [value, setValue] = useState('')
   const [contact, setContact] = useState('')
+  const [familyName, setFamilyName] = useState('')
+  const [payerName, setPayerName] = useState('')
   const [notes, setNotes] = useState('')
   const [loaded, setLoaded] = useState(!patientId)
   const [saving, setSaving] = useState(false)
@@ -22,6 +24,8 @@ export function PatientForm() {
         setName(p.name)
         setValue(String(p.defaultSessionValue))
         setContact(p.familyContact ?? '')
+        setFamilyName(p.familyName ?? '')
+        setPayerName(p.payerName ?? '')
         setNotes(p.notes ?? '')
       }
       setLoaded(true)
@@ -37,6 +41,8 @@ export function PatientForm() {
       name: name.trim(),
       defaultSessionValue: numericValue,
       familyContact: contact.trim() || undefined,
+      familyName: familyName.trim() || undefined,
+      payerName: payerName.trim() || undefined,
       notes: notes.trim() || undefined,
     }
     if (patientId) {
@@ -83,11 +89,27 @@ export function PatientForm() {
           />
         </Field>
 
+        <Field label="Nome do familiar responsável" hint="Opcional. Usado na saudação do relatório mensal (Ex: 'Bom dia, Juliana!').">
+          <TextInput
+            value={familyName}
+            onChange={(e) => setFamilyName(e.target.value)}
+            placeholder="Ex: Juliana"
+          />
+        </Field>
+
         <Field label="Contato do familiar responsável" hint="Opcional. Telefone, WhatsApp ou e-mail.">
           <TextInput
             value={contact}
             onChange={(e) => setContact(e.target.value)}
             placeholder="Ex: (11) 99999-9999"
+          />
+        </Field>
+
+        <Field label="Nome para o recibo" hint="Opcional. Preencha só se o recibo deve sair em nome de outra pessoa (ex: familiar que paga). Se vazio, usa o nome do paciente.">
+          <TextInput
+            value={payerName}
+            onChange={(e) => setPayerName(e.target.value)}
+            placeholder="Ex: Edna Cecília Gareau"
           />
         </Field>
 

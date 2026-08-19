@@ -3,6 +3,8 @@ export interface Patient {
   name: string
   defaultSessionValue: number
   familyContact?: string
+  familyName?: string // nome do familiar responsável, usado nas saudações do relatório
+  payerName?: string // nome para o recibo, se diferente do paciente (ex: familiar que paga)
   notes?: string
   createdAt: string
 }
@@ -31,6 +33,14 @@ export interface TherapistSettings {
   phone?: string
 }
 
+export interface MonthlyNote {
+  id: number
+  patientId: number
+  monthKey: string // YYYY-MM
+  text: string
+  updatedAt: string
+}
+
 export interface BackupData {
   exportedAt: string
   version: number
@@ -38,4 +48,5 @@ export interface BackupData {
   sessions: Session[]
   payments: MonthlyPayment[]
   settings: TherapistSettings[]
+  monthlyNotes?: MonthlyNote[]
 }

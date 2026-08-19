@@ -53,11 +53,17 @@ export function PatientDetail() {
       />
 
       <div className="px-4 pt-4 flex flex-col gap-4">
-        {(patient.familyContact || patient.notes) && (
+        {(patient.familyName || patient.familyContact || patient.notes) && (
           <Card className="text-sm text-charcoal/80 flex flex-col gap-1">
-            {patient.familyContact && (
+            {patient.familyName && (
               <p>
                 <span className="font-medium text-charcoal">Familiar responsável: </span>
+                {patient.familyName}
+              </p>
+            )}
+            {patient.familyContact && (
+              <p>
+                <span className="font-medium text-charcoal">Contato do familiar: </span>
                 {patient.familyContact}
               </p>
             )}
