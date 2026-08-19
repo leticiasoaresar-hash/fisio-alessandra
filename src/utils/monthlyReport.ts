@@ -9,7 +9,6 @@ export function buildMonthlyReportText(
   observations: string,
 ): string {
   const monthLabel = formatMonthLabel(closing.monthKey)
-  const greeting = patient.familyName ? `Bom dia, ${patient.familyName}!` : 'Bom dia!'
   const therapistName = therapist?.name || '(nome da fisioterapeuta não configurado em Ajustes)'
 
   const sessionLines = closing.sessions
@@ -18,9 +17,7 @@ export function buildMonthlyReportText(
     .map((s) => `${formatDateShortBR(s.date)} - ${formatCurrencyBRL(s.value)}`)
 
   return [
-    greeting,
-    '',
-    `Segue o fechamento dos atendimentos de Fisioterapia de ${monthLabel}, referente a ${patient.name}.`,
+    `Segue o fechamento dos atendimentos de fisioterapia de ${monthLabel}, referente a ${patient.name}.`,
     '',
     ...sessionLines,
     `TOTAL: ${formatCurrencyBRL(closing.totalValue)}`,
@@ -61,20 +58,17 @@ export async function generateMonthlyReportPdf(
   }
 
   const monthLabel = formatMonthLabel(closing.monthKey)
-  const greeting = patient.familyName ? `Bom dia, ${patient.familyName}!` : 'Bom dia!'
   const therapistName = therapist?.name || 'Fisioterapeuta'
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(18)
-  doc.text('Relatório mensal de fisioterapia', marginX, y)
-  y += 30
+  doc.text('Relatório Mensal de Fisioterapia', marginX, y)
+  y += 36
 
   doc.setFontSize(12)
   doc.setFont('helvetica', 'normal')
-  doc.text(greeting, marginX, y)
-  y += 26
 
-  const intro = `Segue o fechamento dos atendimentos de Fisioterapia de ${monthLabel}, referente a ${patient.name}.`
+  const intro = `Segue o fechamento dos atendimentos de fisioterapia de ${monthLabel}, referente a ${patient.name}.`
   const wrappedIntro = doc.splitTextToSize(intro, contentWidth)
   doc.text(wrappedIntro, marginX, y)
   y += wrappedIntro.length * 16 + 24
