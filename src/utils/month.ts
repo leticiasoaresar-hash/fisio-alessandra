@@ -45,6 +45,11 @@ export function formatDateBR(dateISO: string): string {
   return `${d}/${m}/${y}`
 }
 
+export function formatDateShortBR(dateISO: string): string {
+  const [, m, d] = dateISO.split('-')
+  return `${d}/${m}`
+}
+
 export function formatCurrencyBRL(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }

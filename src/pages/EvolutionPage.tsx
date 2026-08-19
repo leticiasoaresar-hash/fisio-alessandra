@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { db } from '../db'
-import { getMonthlyClosing, getSettings } from '../repo'
+import { getMonthlyClosing, getMonthlyNote, getSettings, saveMonthlyNote } from '../repo'
 import { Screen, TopBar, Card, Field, TextArea, PrimaryButton, OutlineButton, SecondaryButton } from '../components/ui'
-import { CopyIcon, SparkleIcon } from '../components/icons'
+import { CopyIcon, DownloadIcon, SparkleIcon } from '../components/icons'
 import { currentMonthKey, formatDateBR, formatMonthLabel, formatMonthLabelCapitalized } from '../utils/month'
+import { buildMonthlyReportFilename, generateMonthlyReportPdf } from '../utils/monthlyReport'
 
 function extractWhatsAppNumber(contact?: string): string | null {
   if (!contact) return null
@@ -24,11 +25,21 @@ export function EvolutionPage() {
   const settings = useLiveQuery(() => getSettings(), [])
   const closing = useLiveQuery(() => getMonthlyClosing(patientId, monthKey), [patientId, monthKey])
 
-  const [extra, setExtra] = useState('')
+  const [observations, setObservations] = useState('')
+  const [observationsLoaded, setObservationsLoaded] = useState(false)
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [generatingPdf, setGeneratingPdf] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    setObservationsLoaded(false)
+    getMonthlyNote(patientId, monthKey).then((text) => {
+      setObservations(text)
+      setObservationsLoaded(true)
+    })
+  }, [patientId, monthKey])
 
   const notesFromSessions = closing?.sessions
     .filter((s) => s.note)
@@ -37,8 +48,13 @@ export function EvolutionPage() {
     .map((s) => `${formatDateBR(s.date)}: ${s.note}`)
     .join('\n')
 
+  async function handleSaveObservations() {
+    await saveMonthlyNote(patientId, monthKey, observations)
+  }
+
   async function handleGenerate() {
     if (!patient) return
+    await handleSaveObservations()
     setLoading(true)
     setError('')
     try {
@@ -49,7 +65,7 @@ export function EvolutionPage() {
           patientName: patient.name,
           monthLabel: formatMonthLabel(monthKey),
           notes: notesFromSessions ?? '',
-          extra,
+          extra: observations,
           therapistName: settings?.name ?? '',
         }),
       })
@@ -79,6 +95,18 @@ export function EvolutionPage() {
     window.open(url, '_blank')
   }
 
+  async function handleDownloadReport() {
+    if (!patient || !closing) return
+    await handleSaveObservations()
+    setGeneratingPdf(true)
+    try {
+      const doc = await generateMonthlyReportPdf(patient, settings, closing, observations)
+      doc.save(buildMonthlyReportFilename(patient, monthKey))
+    } finally {
+      setGeneratingPdf(false)
+    }
+  }
+
   if (patient === undefined || closing === undefined) return null
 
   return (
@@ -102,19 +130,38 @@ export function EvolutionPage() {
           </p>
         )}
 
-        <Field label="Complemento (opcional)" hint="Anote aqui qualquer coisa a mais que queira contar pra família — pode ser em tópicos soltos.">
+        <Field
+          label="Observações / evolução do mês"
+          hint="Esse texto é salvo automaticamente e aparece no relatório mensal em PDF. Também serve de base pra mensagem gerada por IA."
+        >
           <TextArea
-            value={extra}
-            onChange={(e) => setExtra(e.target.value)}
-            rows={4}
-            placeholder="Ex: melhora no equilíbrio, ainda com receio de escadas, humor ótimo esse mês"
+            value={observations}
+            onChange={(e) => setObservations(e.target.value)}
+            onBlur={handleSaveObservations}
+            disabled={!observationsLoaded}
+            rows={5}
+            placeholder="Ex: Manteve estabilidade no quadro. Seguimos estimulando fortalecimento muscular, equilíbrio e treino de marcha."
           />
         </Field>
 
-        <PrimaryButton onClick={handleGenerate} disabled={loading}>
-          <SparkleIcon className="w-5 h-5" />
-          {loading ? 'Gerando mensagem...' : 'Gerar mensagem com IA'}
-        </PrimaryButton>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm font-semibold text-charcoal">Relatório mensal</p>
+          <PrimaryButton onClick={handleDownloadReport} disabled={generatingPdf || closing.sessionCount === 0}>
+            <DownloadIcon className="w-5 h-5" />
+            {generatingPdf ? 'Gerando relatório...' : 'Baixar relatório mensal (PDF)'}
+          </PrimaryButton>
+          {closing.sessionCount === 0 && (
+            <p className="text-xs text-taupe text-center">Registre ao menos uma sessão neste mês para gerar o relatório.</p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3 pt-2">
+          <p className="text-sm font-semibold text-charcoal">Mensagem para a família (WhatsApp)</p>
+          <OutlineButton onClick={handleGenerate} disabled={loading}>
+            <SparkleIcon className="w-5 h-5" />
+            {loading ? 'Gerando mensagem...' : 'Gerar mensagem com IA'}
+          </OutlineButton>
+        </div>
 
         {error && (
           <Card className="bg-brick/5 border-brick/30 text-sm text-brick">
